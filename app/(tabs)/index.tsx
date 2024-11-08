@@ -10,7 +10,8 @@ import {
   TouchableOpacity,
   TouchableHighlight,
   TouchableWithoutFeedback,
-  TextInput
+  TextInput,
+  Alert
 
   } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -53,10 +54,18 @@ export default function HomeScreen() {
     await AsyncStorage.setItem(STORAGE_KEY, s);
   } 
  
-  const loadToDos = async()=>{
-     const s = await AsyncStorage.getItem(STORAGE_KEY);
-     console.log(s);
-  }
+  const loadToDos = async () => {
+    try{
+      const s = await AsyncStorage.getItem(STORAGE_KEY);
+      const parsedToDos = s ? JSON.parse(s) : {};  // null 체크 후 기본값 빈 객체로 설정
+      console.log(parsedToDos);
+      setToDos(parsedToDos);
+    }catch{
+
+    }
+   
+  };
+  
   useEffect(()=>{
     loadToDos();
 
@@ -79,6 +88,21 @@ export default function HomeScreen() {
       
       `, newToDos)
       await saveToDos(newToDos);
+  }
+  const deleteToDo = async(id:string)=>{
+    return Alert.alert("delete todo?", "Are you sure?",[
+      {text:"cancel"},
+      {text:"sure", 
+        style:"destructive",
+        onPress:async()=>{
+        const newToDos = {...toDos};
+        delete newToDos[id];
+        setToDos(newToDos);
+        await saveToDos(newToDos);
+      }}
+    ])
+    
+    
   }
   return (
     <View style={styles.container}>
@@ -108,8 +132,14 @@ export default function HomeScreen() {
       <ScrollView>
         {Object.keys(toDos).map((key)=>(
           toDos[key].working ===working? 
-         ( <View key={key} style={styles.toDo}>
+         ( 
+         <View key={key} style={styles.toDo}>
           <Text style={styles.toDoText}>{toDos[key].text}</Text>
+
+          <TouchableOpacity onPress={()=>{deleteToDo(key)}}>
+            <Text>❌</Text>
+          </TouchableOpacity>
+          
         </View>
         ):(
         null
@@ -149,7 +179,10 @@ const styles = StyleSheet.create({
     marginBottom:10,
     paddingVertical:10,
     paddingHorizontal:20,
-    borderRadius:15
+    borderRadius:15,
+    flexDirection:'row',
+    alignItems:'center',
+    justifyContent:'space-between'
   },
   toDoText:{
     color:'white',
