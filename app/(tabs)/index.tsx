@@ -54,9 +54,13 @@ export default function HomeScreen() {
   } 
  
   const loadToDos = async()=>{
-
+     const s = await AsyncStorage.getItem(STORAGE_KEY);
+     console.log(s);
   }
+  useEffect(()=>{
+    loadToDos();
 
+  },[])
   const addToDo = async() =>{
     alert(text);
     if(text===''){
