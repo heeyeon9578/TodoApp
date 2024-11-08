@@ -1,14 +1,29 @@
-import { Image, StyleSheet, Platform, View, Text, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import {
+  Image,
+  StyleSheet, 
+  Platform,
+  View,
+  Text, 
+  ScrollView,
+  Dimensions,
+  ActivityIndicator,
+  TouchableOpacity,
+  TouchableHighlight,
+  TouchableWithoutFeedback,
+  TextInput
+
+  } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 import { Fontisto } from '@expo/vector-icons';
-
+import { theme } from '@/colors'
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const API_KEY = '1403d5fcf20669d858eb5530c1f9199c';
 
 type WeatherCondition = "Clouds" | "Clear" | "Rain" | "Atmosphere" | "Snow" | "Drizzle" | "Thunderstorm";
-
+const STORAGE_KEY = "@toDos";
 const icons: Record<WeatherCondition, keyof typeof Fontisto.glyphMap> = {
   Clear: "day-sunny",
   Clouds: "cloudy",
@@ -19,75 +34,83 @@ const icons: Record<WeatherCondition, keyof typeof Fontisto.glyphMap> = {
   Thunderstorm: "lightning",
 };
 
-function isWeatherCondition(condition: string): condition is WeatherCondition {
-  return condition in icons;
+interface ToDo{
+  text: string;
+  working:boolean;
 }
-
-interface WeatherData {
-  dt_txt: string;
-  main: {
-    temp: number;
-  };
-  weather: { main: string, description: string }[];
-}
-
 export default function HomeScreen() {
-  const [city, setCity] = useState<string | null>("Loading");
-  const [days, setDays] = useState<WeatherData[]>([]);
-  const [ok, setOk] = useState(true);
+  const [working, setWorking] = useState(true);
+  const [text, setText] = useState('');
+  const [toDos, setToDos] = useState<{[key:string]:ToDo}>({});
+  const travel = () => setWorking(false);
+  const work =()=>{setWorking(true)};
+  const onChangeText = (text: string) => {
+    console.log(text);
+    setText(text);
+  }
+  const  saveToDos=async(toSave:{[key: string]: ToDo} )=>{
+    const s = JSON.stringify(toSave);
+    await AsyncStorage.setItem(STORAGE_KEY, s);
+  } 
+ 
+  const loadToDos = async()=>{
 
-  const ask = async () => {
-    const { granted } = await Location.requestForegroundPermissionsAsync();
-    if (!granted) {
-      setOk(false);
+  }
+
+  const addToDo = async() =>{
+    alert(text);
+    if(text===''){
+      return;
     }
-    const { coords: { latitude, longitude } } = await Location.getCurrentPositionAsync({ accuracy: 5 });
-    const location = await Location.reverseGeocodeAsync({ latitude, longitude }, { useGoogleMaps: false });
-
-    setCity(location[0].city);
-    const response = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&appid=${API_KEY}`);
-    const { list }: { list: WeatherData[] } = await response.json();
-    const filteredList = list.filter(({ dt_txt }) => dt_txt.endsWith("00:00:00"));
-    setDays(filteredList);
-  };
-
-  useEffect(() => {
-    ask();
-  }, []);
-
+    //save to do
+    const newToDos = Object.assign({}, toDos, {[Date.now()]: {text, working}}); 
+    setToDos(newToDos);
+    console.log(newToDos)
+    setText("");
+    console.log(`
+      
+      
+      newToDos
+      
+      
+      `, newToDos)
+      await saveToDos(newToDos);
+  }
   return (
     <View style={styles.container}>
-      <StatusBar style='light' />
-      <View style={styles.city}>
-        <Text style={styles.cityName}>{city}</Text>
+      <StatusBar style='auto' />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={work}>
+          <Text style={{...styles.btnText, color: working? "white": theme.grey}}>Work</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={travel}>
+          <Text style={{...styles.btnText, color: !working? "white": theme.grey}}>Travel</Text>
+        </TouchableOpacity>
+        
+      </View>
+      <View>
+        <TextInput 
+        value={text}
+        returnKeyType='done'
+        autoCapitalize={'sentences'}
+        onChangeText={onChangeText}
+         style={styles.input} 
+         placeholder={working?"Add a To Do": "Add a Travel"}
+         placeholderTextColor="red"
+         onSubmitEditing={addToDo}
+         ></TextInput>
       </View>
 
-      <ScrollView
-        pagingEnabled
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.weather}
-      >
-        {days.length === 0 ? (
-          <View style={styles.day}>
-            <ActivityIndicator color="white" size='large' style={{ marginTop: 10 }} />
-          </View>
-        ) : (
-          days.map((day, index) => (
-            <View key={index} style={styles.day}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: "space-between" }}>
-                <Text style={styles.temp}>{Math.round(day.main.temp - 273.15)}°C</Text>
-                <Fontisto
-                  name={isWeatherCondition(day.weather[0].main) ? icons[day.weather[0].main] : "cloudy"}
-                  size={60}
-                  color="white"
-                />
-              </View>
-              <Text style={styles.description}>{day.weather[0].main}</Text>
-              <Text style={styles.tinyText}>{day.weather[0].description}</Text>
-            </View>
-          ))
-        )}
+      <ScrollView>
+        {Object.keys(toDos).map((key)=>(
+          toDos[key].working ===working? 
+         ( <View key={key} style={styles.toDo}>
+          <Text style={styles.toDoText}>{toDos[key].text}</Text>
+        </View>
+        ):(
+        null
+        )
+        ))}
       </ScrollView>
     </View>
   );
@@ -96,36 +119,37 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 2,
-    backgroundColor: 'pink',
+    backgroundColor: theme.bg,
+    paddingHorizontal:20,
   },
-  city: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  header:{
+    justifyContent:'space-between',
+    flexDirection:'row',
+    marginTop: 100
   },
-  cityName: {
-    color: 'white',
-    fontSize: 68,
-    fontWeight: "500",
+  btnText:{
+    fontSize:38,
+  
   },
-  weather: {},
-  day: {
-    width: SCREEN_WIDTH,
-    flex: 1,
-    alignItems: 'center',
+  input:{
+    backgroundColor:'white',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    marginVertical:20,
+    borderRadius:30,
+    marginTop:20,
+    fontSize: 18
   },
-  temp: {
-    color: 'white',
-    marginTop: 50,
-    fontSize: 100,
+  toDo:{
+    backgroundColor:theme.toDoBg,
+    marginBottom:10,
+    paddingVertical:10,
+    paddingHorizontal:20,
+    borderRadius:15
   },
-  description: {
-    color: 'white',
-    marginTop: -30,
-    fontSize: 60,
-  },
-  tinyText: {
-    color: 'white',
-    fontSize: 20,
+  toDoText:{
+    color:'white',
+    fontSize:16,
+    fontWeight:'500'
   }
 });
